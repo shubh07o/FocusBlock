@@ -23,7 +23,7 @@ FocusBlock is engineered with a strict **Zero-Trust, Zero-Data & 100% Privacy** 
 ## 🚀 How to Install & Use
 
 ### Step 1: Install the APK
-1. Download or transfer the latest `app-release.apk` (or `app-debug.apk`) to your phone.
+1. Download or transfer the latest `FocusBlock.apk` (or `FocusBlock-debug.apk`) to your phone.
 2. Tap the APK in your phone's **Files / Downloads** app to install.
 
 ### Step 2: Handle Play Protect Warning (Safe & Normal)
@@ -97,17 +97,17 @@ graph TD
 ```bash
 ./gradlew assembleDebug
 ```
-Output: `app/build/outputs/apk/debug/app-debug.apk`
+Output: `app/build/outputs/apk/debug/FocusBlock-debug.apk`
 
 ### Build Release APK:
 ```bash
 ./gradlew assembleRelease
 ```
-Output: `app/build/outputs/apk/release/app-release.apk`
+Output: `app/build/outputs/apk/release/FocusBlock.apk`
 
 ### Install via ADB:
 ```bash
-adb install -r app/build/outputs/apk/release/app-release.apk
+adb install -r app/build/outputs/apk/release/FocusBlock.apk
 ```
 
 ---

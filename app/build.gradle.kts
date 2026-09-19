@@ -47,6 +47,19 @@ android {
     buildFeatures {
         viewBinding = true
     }
+
+    applicationVariants.all {
+        val variant = this
+        outputs
+            .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
+            .forEach { output ->
+                output.outputFileName = if (variant.buildType.name == "release") {
+                    "FocusBlock.apk"
+                } else {
+                    "FocusBlock-debug.apk"
+                }
+            }
+    }
 }
 
 dependencies {
