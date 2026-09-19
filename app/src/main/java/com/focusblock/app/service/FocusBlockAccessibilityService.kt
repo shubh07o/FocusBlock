@@ -7,13 +7,16 @@ import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.focusblock.app.data.PreferencesHelper
+import com.focusblock.app.detector.DetectionResult
 import com.focusblock.app.detector.ShortsReelsDetector
 
 /**
  * High-performance Accessibility Service for FocusBlock.
  *
- * Monitors YouTube and Instagram in real time, immediately navigating away from
- * Shorts and Reels using global back action with smart debouncing and fallback handling.
+ * Exclusively blocks Reels, Spotlight, and Shorts without closing the host app.
+ * - When on Reels/Spotlight/Shorts bottom tab: switches to Home/Chat tab cleanly.
+ * - When in fullscreen overlay player: issues Back to dismiss overlay without exiting app.
+ * - Stories, Main Feeds, and DMs remain completely untouched and usable.
  */
 class FocusBlockAccessibilityService : AccessibilityService() {
 
@@ -24,8 +27,8 @@ class FocusBlockAccessibilityService : AccessibilityService() {
     private var lastEvaluationTime = 0L
     private var lastBlockActionTime = 0L
 
-    private val debounceDelayMs = 60L
-    private val blockCooldownMs = 350L
+    private val debounceDelayMs = 40L
+    private val blockCooldownMs = 300L
 
     private var currentForegroundPackage: String? = null
     private var currentActivityName: String? = null
@@ -62,10 +65,7 @@ class FocusBlockAccessibilityService : AccessibilityService() {
             }
         }
 
-        // Only evaluate target apps
-        if (eventPackage == ShortsReelsDetector.PACKAGE_YOUTUBE ||
-            eventPackage == ShortsReelsDetector.PACKAGE_INSTAGRAM
-        ) {
+        if (eventPackage != null && ShortsReelsDetector.SUPPORTED_PACKAGES.contains(eventPackage)) {
             scheduleEvaluation(event = event)
         }
     }
@@ -92,13 +92,13 @@ class FocusBlockAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Evaluates active window content and executes immediate blocking navigation if a Short/Reel is detected.
+     * Evaluates active window content and executes non-destructive escape navigation.
      */
     private fun evaluateCurrentScreen(event: AccessibilityEvent?) {
         if (!preferencesHelper.isProtectionEnabled) return
 
         val pkg = currentForegroundPackage
-        if (pkg != ShortsReelsDetector.PACKAGE_YOUTUBE && pkg != ShortsReelsDetector.PACKAGE_INSTAGRAM) {
+        if (pkg == null || !ShortsReelsDetector.SUPPORTED_PACKAGES.contains(pkg)) {
             return
         }
 
@@ -108,68 +108,92 @@ class FocusBlockAccessibilityService : AccessibilityService() {
             null
         }
 
-        val isTargetDistraction = detector.isShortsOrReel(
+        val detectionResult = detector.detectDistraction(
             packageName = pkg,
             currentActivity = currentActivityName,
             rootNode = rootNode,
             event = event
         )
 
-        if (isTargetDistraction) {
-            executeBlockAction(pkg, rootNode)
+        if (detectionResult.isDistraction) {
+            executeBlockAction(pkg, detectionResult, rootNode)
         }
     }
 
     /**
-     * Immediately triggers Back navigation with cooldown protection and scheduled follow-up re-checks.
+     * Executes targeted escape action:
+     * - If on a bottom tab: switches to Home/Chat tab without pressing Back (so the app never closes).
+     * - If in an overlay viewer: presses Back to return to feed/search.
      */
-    private fun executeBlockAction(pkg: String, rootNode: AccessibilityNodeInfo?) {
+    private fun executeBlockAction(pkg: String, result: DetectionResult, rootNode: AccessibilityNodeInfo?) {
         val now = System.currentTimeMillis()
         if (now - lastBlockActionTime < blockCooldownMs) {
-            // Already taking action within cooldown window
             return
         }
         lastBlockActionTime = now
 
-        // Step 1: Perform Global Back to exit the Short/Reel viewer
-        performGlobalAction(GLOBAL_ACTION_BACK)
+        if (result.isTabSelected && rootNode != null) {
+            // User is on the dedicated tab -> Switch to safe tab immediately without exiting app
+            val tabSwitched = when (pkg) {
+                ShortsReelsDetector.PACKAGE_INSTAGRAM -> {
+                    tryClickTab(rootNode, listOf("Home", "Feed", "Search", "Profile", "Direct"))
+                }
+                ShortsReelsDetector.PACKAGE_SNAPCHAT -> {
+                    tryClickTab(rootNode, listOf("Chat", "Camera", "Map", "Stories"))
+                }
+                ShortsReelsDetector.PACKAGE_YOUTUBE, ShortsReelsDetector.PACKAGE_YOUTUBE_REVANCED -> {
+                    tryClickTab(rootNode, listOf("Home", "Subscriptions", "You", "Library"))
+                }
+                else -> false
+            }
 
-        // Step 2: Fallback for YouTube Shorts tab - if stuck on tab, attempt navigating to Home tab
-        if (pkg == ShortsReelsDetector.PACKAGE_YOUTUBE && rootNode != null) {
-            tryFallbackToYouTubeHome(rootNode)
+            if (!tabSwitched) {
+                // If tab click didn't find candidate, perform back
+                performGlobalAction(GLOBAL_ACTION_BACK)
+            }
+        } else {
+            // Fullscreen overlay opened from feed/search -> Dismiss overlay with Back
+            performGlobalAction(GLOBAL_ACTION_BACK)
         }
 
-        // Step 3: Schedule follow-up re-checks to confirm the distraction was dismissed
-        handler.postDelayed({ evaluateCurrentScreen(null) }, 180)
-        handler.postDelayed({ evaluateCurrentScreen(null) }, 480)
+        // Re-check shortly after navigation
+        handler.postDelayed({ evaluateCurrentScreen(null) }, 200)
     }
 
     /**
-     * If user navigated into the YouTube Shorts tab, locate and click the Home tab as a clean fallback.
+     * Finds and clicks an alternative safe bottom tab.
      */
-    private fun tryFallbackToYouTubeHome(rootNode: AccessibilityNodeInfo) {
+    private fun tryClickTab(rootNode: AccessibilityNodeInfo, candidateNames: List<String>): Boolean {
         try {
-            // Look for Home tab in pivot bar
-            val nodes = rootNode.findAccessibilityNodeInfosByText("Home")
-            if (!nodes.isNullOrEmpty()) {
-                for (node in nodes) {
-                    if (node.isClickable) {
-                        node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        return
-                    }
-                    val parent = node.parent
-                    if (parent != null && parent.isClickable) {
-                        parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        return
+            for (name in candidateNames) {
+                val nodesByText = rootNode.findAccessibilityNodeInfosByText(name)
+                if (!nodesByText.isNullOrEmpty()) {
+                    for (node in nodesByText) {
+                        if (performClickOnNodeOrParent(node)) {
+                            return true
+                        }
                     }
                 }
             }
         } catch (_: Exception) {
         }
+        return false
+    }
+
+    private fun performClickOnNodeOrParent(node: AccessibilityNodeInfo?): Boolean {
+        var curr = node
+        var depth = 0
+        while (curr != null && depth < 4) {
+            if (curr.isClickable) {
+                return curr.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }
+            curr = curr.parent
+            depth++
+        }
+        return false
     }
 
     override fun onInterrupt() {
-        // Accessibility service interrupted
     }
 
     override fun onDestroy() {

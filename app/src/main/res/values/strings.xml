@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">FocusBlock</string>
     <string name="accessibility_service_label">FocusBlock Protection Service</string>
-    <string name="accessibility_service_description">Monitors YouTube Shorts and Instagram Reels to protect your focus and time by blocking addictive short-form content.</string>
+    <string name="accessibility_service_description">Monitors YouTube Shorts, Instagram Reels, Snapchat Spotlight, and Facebook Reels to protect your focus by instantly blocking addictive short-form content.</string>
     
     <!-- UI Strings -->
     <string name="title_focusblock">FocusBlock</string>
@@ -12,21 +12,21 @@
     <string name="status_permission_required">Permission Required</string>
     
     <string name="toggle_protection_label">Master Protection</string>
-    <string name="toggle_protection_desc">Toggle blocking for YouTube Shorts and Instagram Reels</string>
+    <string name="toggle_protection_desc">Toggle blocking for Shorts, Reels &amp; Spotlight</string>
     
     <string name="permission_card_title">Accessibility Permission</string>
     <string name="permission_card_desc_enabled">Service is connected and actively guarding your focus.</string>
-    <string name="permission_card_desc_disabled">Accessibility service is needed to detect and block Shorts &amp; Reels.</string>
+    <string name="permission_card_desc_disabled">Accessibility service is needed to detect and block short-form videos.</string>
     <string name="btn_enable_accessibility">Enable Accessibility</string>
     <string name="btn_service_settings">Accessibility Settings</string>
 
     <string name="info_title">How It Works</string>
-    <string name="info_bullet_1">• Exclusively blocks YouTube Shorts &amp; Instagram Reels</string>
-    <string name="info_bullet_2">• Normal YouTube videos &amp; Instagram posts stay usable</string>
-    <string name="info_bullet_3">• Zero internet, zero data collection, ultra battery-efficient</string>
+    <string name="info_bullet_1">• Blocks YouTube Shorts, Instagram Reels &amp; Snapchat Spotlight</string>
+    <string name="info_bullet_2">• Normal videos, regular posts, stories &amp; chats stay usable</string>
+    <string name="info_bullet_3">• 100% offline, zero data collection, ultra battery-efficient</string>
 
     <!-- Overlay Strings -->
-    <string name="overlay_blocked_title">Shorts &amp; Reels Blocked</string>
+    <string name="overlay_blocked_title">Short-Form Content Blocked</string>
     <string name="overlay_blocked_subtitle">Stay focused.</string>
     <string name="overlay_btn_go_back">Go Back</string>
 </resources>
